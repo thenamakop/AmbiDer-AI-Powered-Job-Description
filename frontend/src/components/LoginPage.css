@@ -1,0 +1,216 @@
+/* ─────────────────────────────────────────────────────────────
+   LoginPage — AmbiDer Orange Brand
+───────────────────────────────────────────────────────────── */
+.login-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #FFF7F5 0%, #FDDECE 100%);
+  padding: 20px;
+}
+
+.login-card {
+  background: #FFFFFF;
+  padding: 48px 40px 36px;
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(232, 81, 10, 0.12), 0 2px 8px rgba(0,0,0,0.06);
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  border: 1px solid #FDDECE;
+}
+
+.login-logo {
+  max-width: 200px;
+  height: auto;
+  margin-bottom: 16px;
+}
+
+.login-app-name {
+  font-family: 'Poppins', system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #2F2F2F;
+  margin-bottom: 4px;
+}
+
+.login-subtitle {
+  font-size: 14px;
+  color: #6B7280;
+  margin-bottom: 32px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.login-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.login-group label {
+  font-family: 'Poppins', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #2F2F2F;
+}
+
+.login-group input {
+  padding: 12px 14px;
+  border: 1px solid #FDDECE;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: all 150ms ease;
+  background: #FFFFFF;
+  color: #2F2F2F;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.login-group input:focus {
+  border-color: #E8510A;
+  box-shadow: 0 0 0 3px rgba(232, 81, 10, 0.12);
+}
+
+.login-group input::placeholder {
+  color: #9CA3AF;
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper input {
+  width: 100%;
+  padding-right: 44px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #9CA3AF;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  transition: color 150ms;
+}
+
+.password-toggle:hover {
+  color: #E8510A;
+}
+
+/* Password strength bar */
+.password-strength {
+  margin-top: 6px;
+}
+
+.strength-bar {
+  height: 4px;
+  border-radius: 100px;
+  background: #FDDECE;
+  overflow: hidden;
+}
+
+.strength-fill {
+  height: 100%;
+  border-radius: 100px;
+  transition: width 300ms ease, background 300ms ease;
+}
+
+.strength-label {
+  font-size: 11px;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* Login Button */
+.login-btn {
+  background: #E8510A;
+  color: white;
+  border: none;
+  padding: 14px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: 'Poppins', system-ui, sans-serif;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 150ms ease;
+  width: 100%;
+}
+
+.login-btn:hover {
+  background: #C23D08;
+}
+
+.login-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Divider */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 4px;
+}
+
+.login-divider-line {
+  flex: 1;
+  height: 1px;
+  background: #FDDECE;
+}
+
+.login-divider-text {
+  font-size: 12px;
+  color: #9CA3AF;
+  font-weight: 500;
+}
+
+/* Toggle link */
+.login-toggle-link {
+  background: none;
+  border: none;
+  color: #E8510A;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 16px;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.login-toggle-link:hover {
+  text-decoration: underline;
+}
+
+/* Error */
+.login-error {
+  color: #DC2626;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+
+/* Footer tagline */
+.login-footer {
+  margin-top: 28px;
+  font-size: 11px;
+  color: #9CA3AF;
+  text-align: center;
+}
