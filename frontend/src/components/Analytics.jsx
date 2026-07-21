@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
 import { FileText, Edit3, Building2, TrendingUp } from 'lucide-react';
 import './Pages.css';
 
-const API_BASE = 'http://127.0.0.1:5001/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://ambi-der-ai-powered-job-description-eight.vercel.app/api';
 
 function Analytics() {
   const [data, setData] = useState(null);
