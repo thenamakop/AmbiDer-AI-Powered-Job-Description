@@ -81,7 +81,8 @@ def register():
             return jsonify({"error": "Email already exists"}), 409
         return jsonify({"error": str(e)}), 500
     finally:
-        db_client.close()
+        if "db_client" in locals() and db_client:
+            db_client.close()
 
 @app.route("/api/auth/login", methods=["POST"])
 def login():
@@ -111,7 +112,8 @@ def login():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
-        db_client.close()
+        if "db_client" in locals() and db_client:
+            db_client.close()
 
 @app.route("/api/auth/me", methods=["GET"])
 @jwt_required()
@@ -127,7 +129,8 @@ def get_me():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
-        db_client.close()
+        if "db_client" in locals() and db_client:
+            db_client.close()
 
 # --- Core App Endpoints ---
 
@@ -326,7 +329,8 @@ def save_jd():
         print("Save error:", e)
         return jsonify({"error": str(e)}), 500
     finally:
-        db_client.close()
+        if "db_client" in locals() and db_client:
+            db_client.close()
 
 @app.route("/api/edit", methods=["POST"])
 @jwt_required(optional=True)
@@ -383,7 +387,8 @@ def save_edit():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
-        db_client.close()
+        if "db_client" in locals() and db_client:
+            db_client.close()
 
 @app.route("/api/saved", methods=["GET"])
 @jwt_required()
@@ -418,7 +423,8 @@ def get_saved_jds():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
-        db_client.close()
+        if "db_client" in locals() and db_client:
+            db_client.close()
 
 @app.route("/api/saved/<int:jd_id>", methods=["DELETE"])
 @jwt_required()
@@ -436,7 +442,8 @@ def delete_saved_jd(jd_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
-        db_client.close()
+        if "db_client" in locals() and db_client:
+            db_client.close()
 
 @app.route("/api/history", methods=["GET"])
 @jwt_required()
@@ -474,7 +481,8 @@ def get_history():
         print("History error:", e)
         return jsonify({"error": str(e)}), 500
     finally:
-        db_client.close()
+        if "db_client" in locals() and db_client:
+            db_client.close()
 
 @app.route("/api/analytics", methods=["GET"])
 @jwt_required()
@@ -535,7 +543,8 @@ def get_analytics():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
-        db_client.close()
+        if "db_client" in locals() and db_client:
+            db_client.close()
 
 @app.route("/api/ats-score", methods=["POST"])
 @jwt_required(optional=True)
