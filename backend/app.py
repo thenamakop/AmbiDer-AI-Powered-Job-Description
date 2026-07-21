@@ -43,6 +43,13 @@ else:
 
 # --- Authentication Endpoints ---
 
+@app.route("/", methods=["GET"])
+def health_check():
+    return jsonify({
+        "status": "ok",
+        "message": "AmbiDer API Backend is running smoothly!"
+    }), 200
+
 @app.route("/api/auth/register", methods=["POST"])
 def register():
     data = request.get_json()
