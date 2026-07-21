@@ -3,11 +3,18 @@ import certifi
 os.environ["SSL_CERT_FILE"] = certifi.where()
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from groq import Groq
+try:
+    from groq import Groq
+except Exception:
+    Groq = None
 from dotenv import load_dotenv
+# Graceful bcrypt import
+try:
+    import bcrypt
+except Exception:
+    bcrypt = None
+import hashlib
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
-import bcrypt
-import os
 from datetime import timedelta
 from db import get_db, init_db
 
@@ -24,7 +31,12 @@ app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "ambider-jd-secret-20
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
 jwt = JWTManager(app)
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# Initialize Groq client if API key is provided
+groq_key = os.getenv("GROQ_API_KEY")
+if Groq and groq_key:
+    client = Groq(api_key=groq_key)
+else:
+    client = None
 
 # --- Authentication Endpoints ---
 
@@ -38,17 +50,20 @@ def register():
     if not full_name or not email or not password:
         return jsonify({"error": "Missing required fields"}), 400
 
-    hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    if bcrypt:
+        hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    else:
+        # Fallback simple SHA-256 hash
+        hashed_pw = hashlib.sha256(password.encode('utf-8')).hexdigest()
+        
     db_client = get_db()
     try:
         db_client.execute(
             "INSERT INTO users (full_name, email, password) VALUES (?, ?, ?)",
             (full_name, email, hashed_pw)
         )
-
         result = db_client.execute("SELECT id FROM users WHERE email = ?", (email,))
         user_id = result.rows[0][0]
-
         access_token = create_access_token(identity=str(user_id))
         return jsonify({"token": access_token, "user": {"id": user_id, "full_name": full_name, "email": email}}), 201
     except Exception as e:
@@ -73,11 +88,16 @@ def login():
         user = result.rows[0]
         user_id, full_name, db_email, hashed_pw = user[0], user[1], user[2], user[3]
 
-        if bcrypt.checkpw(password.encode('utf-8'), hashed_pw.encode('utf-8')):
+        if bcrypt:
+            password_match = bcrypt.checkpw(password.encode('utf-8'), hashed_pw.encode('utf-8'))
+        else:
+            password_match = hashlib.sha256(password.encode('utf-8')).hexdigest() == hashed_pw
+        if password_match:
             access_token = create_access_token(identity=str(user_id))
             return jsonify({"token": access_token, "user": {"id": user_id, "full_name": full_name, "email": db_email}}), 200
         else:
             return jsonify({"error": "Invalid email or password"}), 401
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
@@ -209,6 +229,8 @@ FINAL CHECK BEFORE OUTPUTTING:
 @app.route("/api/generate", methods=["POST"])
 @jwt_required(optional=True)
 def generate_jd():
+    if not client:
+        return jsonify({"error": "AI service not configured"}), 500
     data = request.get_json()
     job_title = data.get("job_title", "")
     industry = data.get("industry", "IT")
@@ -300,6 +322,8 @@ def save_jd():
 @app.route("/api/edit", methods=["POST"])
 @jwt_required(optional=True)
 def edit_jd():
+    if not client:
+        return jsonify({"error": "AI service not configured"}), 500
     data = request.get_json()
     current_jd = data.get("current_jd", "")
     instruction = data.get("instruction", "")
@@ -312,6 +336,8 @@ The user wants to make this change: {instruction}
 Apply the change and return the complete updated Job Description keeping the same format and sections."""
 
     try:
+        if not client:
+            return jsonify({"error": "AI service not configured"}), 500
         chat_completion = client.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
             model="llama-3.1-8b-instant",
@@ -506,6 +532,8 @@ def get_analytics():
 @app.route("/api/ats-score", methods=["POST"])
 @jwt_required(optional=True)
 def ats_score():
+    if not client:
+        return jsonify({"error": "AI service not configured"}), 500
     data = request.get_json()
     jd_text = data.get("jd_text", "")
     job_title = data.get("job_title", "")

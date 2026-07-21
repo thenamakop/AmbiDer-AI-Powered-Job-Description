@@ -343,37 +343,6 @@ function OutputPage({ jdText, formData, onJDUpdate, onRegenerate, onNavigate }) 
     
     bodyParagraphs.push(
       new Paragraph({
-        alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: 80 },
-        children: [
-          new TextRun({
-            text: 'AmbiDer Job Description Generator',
-            size: 22,
-            color: 'E8510A',
-            bold: true,
-            font: 'Calibri'
-          })
-        ]
-      })
-    );
-    
-    bodyParagraphs.push(
-      new Paragraph({
-        spacing: { before: 80, after: 240 },
-        border: {
-          bottom: {
-            color: 'E8510A',
-            space: 4,
-            style: BorderStyle.SINGLE,
-            size: 8
-          }
-        },
-        children: [new TextRun({ text: '' })]
-      })
-    );
-    
-    bodyParagraphs.push(
-      new Paragraph({
         spacing: { before: 0, after: 120 },
         children: [
           new TextRun({
@@ -387,6 +356,7 @@ function OutputPage({ jdText, formData, onJDUpdate, onRegenerate, onNavigate }) 
       })
     );
     
+
     const infoParts = [
       industry && `Industry: ${industry}`,
       company && `Company: ${company}`,
