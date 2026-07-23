@@ -1,8 +1,9 @@
+-c constraints.txt
 flask
 flask-cors
 flask-jwt-extended
-flask-limiter==3.12.0
-redis==5.2.1
+flask-limiter
+redis
 bcrypt
 python-dotenv
 groq
