@@ -20,16 +20,21 @@ class SQLiteResultSet:
 class SQLiteClientWrapper:
     def __init__(self, db_path):
         self.db_path = db_path
+        self.last_insert_id = None
 
     def _get_conn(self):
         conn = sqlite3.connect(self.db_path)
         return conn
 
     def execute(self, sql, params=()):
+        if sql.strip().upper() == "SELECT LAST_INSERT_ROWID()":
+            return SQLiteResultSet([(self.last_insert_id or 0,)])
         conn = self._get_conn()
         try:
             cursor = conn.cursor()
             cursor.execute(sql, params)
+            if sql.strip().upper().startswith("INSERT"):
+                self.last_insert_id = cursor.lastrowid
             if (
                 sql.strip()
                 .upper()
