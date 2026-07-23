@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { lazy, Suspense, useState, useEffect, useRef } from "react";
 import {
   Routes,
   Route,
@@ -10,17 +10,18 @@ import { HelpCircle, Bell, LogOut } from "lucide-react";
 import { jwtDecode } from "jwt-decode";
 import Sidebar from "./components/Sidebar";
 import InputForm from "./components/InputForm";
-import OutputPage from "./components/OutputPage";
 import LoginPage from "./components/LoginPage";
 import SavedJDs from "./components/SavedJDs";
 import History from "./components/History";
 import Analytics from "./components/Analytics";
-import Reports from "./components/Reports";
 import Templates from "./components/Templates";
 import Settings from "./components/Settings";
 import "./App.css";
 
 import API_BASE from "./config";
+
+const OutputPage = lazy(() => import("./components/OutputPage"));
+const Reports = lazy(() => import("./components/Reports"));
 
 function App() {
   const [theme] = useState(
@@ -402,47 +403,53 @@ function App() {
                     onLogout={handleLogout}
                   />
                   <main className="main-content">
-                    <Routes>
-                      <Route
-                        path="/"
-                        element={
-                          <InputForm
-                            onGenerate={handleGenerate}
-                            initialData={formData}
-                          />
-                        }
-                      />
-                      <Route
-                        path="/output"
-                        element={
-                          <OutputPage
-                            jdText={generatedJD}
-                            formData={formData}
-                            onJDUpdate={handleJDUpdate}
-                            onRegenerate={handleRegenerate}
-                            onNavigate={handleNavigate}
-                          />
-                        }
-                      />
-                      <Route
-                        path="/saved"
-                        element={
-                          <SavedJDs
-                            onNavigate={handleNavigate}
-                            onJDLoad={handleJDLoad}
-                          />
-                        }
-                      />
-                      <Route
-                        path="/templates"
-                        element={<Templates onNavigate={handleNavigate} />}
-                      />
-                      <Route path="/history" element={<History />} />
-                      <Route path="/analytics" element={<Analytics />} />
-                      <Route path="/reports" element={<Reports />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
+                    <Suspense
+                      fallback={
+                        <div className="empty-state">Loading page...</div>
+                      }
+                    >
+                      <Routes>
+                        <Route
+                          path="/"
+                          element={
+                            <InputForm
+                              onGenerate={handleGenerate}
+                              initialData={formData}
+                            />
+                          }
+                        />
+                        <Route
+                          path="/output"
+                          element={
+                            <OutputPage
+                              jdText={generatedJD}
+                              formData={formData}
+                              onJDUpdate={handleJDUpdate}
+                              onRegenerate={handleRegenerate}
+                              onNavigate={handleNavigate}
+                            />
+                          }
+                        />
+                        <Route
+                          path="/saved"
+                          element={
+                            <SavedJDs
+                              onNavigate={handleNavigate}
+                              onJDLoad={handleJDLoad}
+                            />
+                          }
+                        />
+                        <Route
+                          path="/templates"
+                          element={<Templates onNavigate={handleNavigate} />}
+                        />
+                        <Route path="/history" element={<History />} />
+                        <Route path="/analytics" element={<Analytics />} />
+                        <Route path="/reports" element={<Reports />} />
+                        <Route path="/settings" element={<Settings />} />
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                      </Routes>
+                    </Suspense>
                   </main>
                 </div>
               </>
