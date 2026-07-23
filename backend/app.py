@@ -460,7 +460,17 @@ def generate_jd():
 @app.route("/api/save", methods=["POST"])
 @jwt_required()
 def save_jd():
-    data = request.get_json()
+    data, error_response = get_json_payload()
+    if error_response:
+        return error_response
+    job_title, error = validate_text(data, "job_title", 200, required=True)
+    if error:
+        return jsonify({"error": error}), 400
+    jd_text, error = validate_text(data, "jd_text", 50000, required=True)
+    if error:
+        return jsonify({"error": error}), 400
+    data["job_title"] = job_title
+    data["jd_text"] = jd_text
     user_id = get_jwt_identity()
     try:
         db_client = get_db()
@@ -764,18 +774,26 @@ def get_analytics():
 
 @app.route("/ats-score", methods=["POST"])
 @app.route("/api/ats-score", methods=["POST"])
-@jwt_required(optional=True)
+@jwt_required()
+@limiter.limit("30 per hour")
 def ats_score():
     if not client:
-        return jsonify({"error": "AI service not configured"}), 500
-    data = request.get_json()
-    jd_text = data.get("jd_text", "")
-    job_title = data.get("job_title", "")
+        return jsonify({"error": "AI service not configured"}), 503
+    data, error_response = get_json_payload()
+    if error_response:
+        return error_response
+    jd_text, error = validate_text(data, "jd_text", 50000, required=True)
+    if error:
+        return jsonify({"error": error}), 400
+    job_title, error = validate_text(data, "job_title", 200, required=True)
+    if error:
+        return jsonify({"error": error}), 400
     skills = data.get("skills", [])
-    if isinstance(skills, list):
-        skills_str = ", ".join(skills)
-    else:
-        skills_str = str(skills)
+    if not isinstance(skills, (list, str)):
+        return jsonify({"error": "skills must be a list or text"}), 400
+    skills_str = ", ".join(skills) if isinstance(skills, list) else skills
+    if len(skills_str) > 2000:
+        return jsonify({"error": "skills must be at most 2000 characters"}), 400
 
     prompt = f"""You are an expert ATS (Applicant Tracking System) analyzer.
 Analyze the following job description and provide an ATS score from 0-100.
