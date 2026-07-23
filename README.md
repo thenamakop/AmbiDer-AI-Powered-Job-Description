@@ -1,148 +1,261 @@
-AmbiDer — AI-Pow ered Job Description Generator
-A web app that generates, edits, scores, and stores professional job descriptions using an AI backend. Designed for recruiters and hiring managers who want high-quality, structured JDs quickly. The repo contains a Flask-based API (backend) and a React + Vite frontend; both are configured to deploy together on Vercel.
+# AmbiDer
 
-Key features
-Generate job descriptions using an LLM (via Groq client).
-Edit generated JDs with instruction-based rewriting.
-Save, list, delete and view history of JDs per user.
-ATS scoring endpoint to evaluate JD quality.
-JWT-based authentication (register, login, me).
-Simple local DB storage (SQLite) with optional Turso/libsql integration for production.
-Stack
-Language(s): Python (backend), JavaScript/React (frontend)
-Framework / runtime:
-Backend: Flask
-Frontend: React + Vite
-Notable libraries:
-Backend: flask, flask-jwt-extended, flask-cors, groq (Groq client), libsql-client (optional), bcrypt (optional)
-Frontend: react, react-router-dom, react-markdown, recharts
-Repository layout
-Code
-api/                   # Vercel serverless entry that imports backend.app
-backend/               # Flask application + DB helper
-  app.py               # Main Flask app — endpoints, AI prompt builder, auth
-  db.py                # DB initialization and transport (SQLite wrapper / libsql)
-  requirements.txt     # backend Python deps
-frontend/              # React + Vite frontend
-  package.json         # frontend deps & scripts
-  src/                 # React source (entry: src/main.jsx)
-requirements.txt       # top-level Python deps (for Vercel function bundling)
-vercel.json            # Vercel build & route configuration (serves API + frontend/dist)
-.gitignore
-How it fits together:
+AmbiDer is an AI-assisted job-description workspace for recruiters and hiring teams. It generates structured job descriptions from role requirements, supports AI-guided revisions, evaluates ATS readiness, and gives authenticated users a place to save, export, search, and review their work.
 
-Vercel runs api/index.py as the serverless function entry (it inserts backend/ into sys.path and imports the Flask app from backend/app.py).
-The frontend is a Vite app built into dist and served as static files. API routes under /api/* are routed to the Python function by vercel.json.
-The Flask app uses a small wrapper in backend/db.py to connect to either a libsql/Turso DB (when configured) or a local SQLite file (fallback). JWT tokens secure most endpoints.
-API (major endpoints)
-Authentication
+The repository is a small full-stack monorepo: a React/Vite single-page application and a Flask API that is deployable as a Vercel Python serverless function.
 
-POST /auth/register or /api/auth/register
-Body: { full_name, email, password }
-Returns: token and user
-POST /auth/login or /api/auth/login
-Body: { email, password }
-Returns: token and user
-GET /auth/me or /api/auth/me
-JWT required. Returns current user info.
-Job description operations
+## Contents
 
-POST /generate or /api/generate
-JWT optional. Body contains fields used to build the AI prompt (job_title, industry, skills, tone, etc.). Requires Groq API configured; otherwise responds with "AI service not configured".
-POST /edit or /api/edit
-JWT optional. Provide current_jd and instruction to get an edited version from the AI.
-POST /save or /api/save
-JWT required. Save a JD to saved_jds table.
-GET /saved or /api/saved
-JWT required. List saved JDs (supports ?search=).
-DELETE /saved/<id> or /api/saved/<id>
-JWT required. Delete a saved JD owned by user.
-GET /history or /api/history
-JWT required. Returns saved JDs plus edit history.
-GET /analytics or /api/analytics
-JWT required. Returns stats for the user.
-POST /ats-score or /api/ats-score
-JWT optional. Returns a JSON ATS score (0–100) plus a breakdown and tips.
-Health
+- [Capabilities](#capabilities)
+- [Architecture](#architecture)
+- [Repository layout](#repository-layout)
+- [Request and data flow](#request-and-data-flow)
+- [Local development](#local-development)
+- [Configuration](#configuration)
+- [API reference](#api-reference)
+- [Persistence](#persistence)
+- [Deployment](#deployment)
+- [Verification](#verification)
+- [Known constraints](#known-constraints)
+- [Contributing](#contributing)
 
-GET /, /health, or /api/health
-Notes:
+## Capabilities
 
-Many endpoints are mirrored under /api/* and root paths.
-Some endpoints return a descriptive error when the Groq client is not configured (GROQ_API_KEY missing).
-Database
-On startup, backend/db.py::init_db() creates these tables if missing:
-users
-saved_jds
-reference_jds
-jd_edits
-Database transport:
-If TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are set and libsql_client is available, the app tries to use Turso.
-Otherwise it falls back to a local SQLite file: backend/app.db, or a temp file when deployed where the repository path is not writable (Vercel).
-Password hashing:
-Uses bcrypt if available; otherwise falls back to SHA-256 (less secure — bcrypt recommended).
-Environment variables
-Create a .env file (not included). Key vars used by the app:
+- Register, sign in, and restore a user session with JWT authentication.
+- Generate a role-specific job description using Groq and the `llama-3.1-8b-instant` model.
+- Include industry-matched reference descriptions in generation prompts when they are present in the database.
+- Refine a generated description with free-form AI editing instructions and retain edit history for saved items.
+- Calculate an ATS-oriented score and recommendations for a description.
+- Save, search, load, delete, and review job descriptions per user.
+- View user analytics and generate reports.
+- Export generated descriptions to PDF and DOCX, copy text, and render Markdown in the application.
+- Use preconfigured templates, light/dark appearance preferences, and browser speech recognition where supported.
 
-JWT_SECRET_KEY — secret used by flask-jwt-extended (defaults to "ambider-jd-secret-2025" if unset).
-GROQ_API_KEY — required to enable the AI features (generation, edit, ATS scoring).
-TURSO_DATABASE_URL — optional, Turso connection URL for libsql.
-TURSO_AUTH_TOKEN — optional, auth token for Turso.
-VERCEL — (set by platform); db path selection uses presence of VERCEL to switch to temp DB file.
-Additionally, the backend sets SSL_CERT_FILE using certifi internally.
+## Architecture
 
-Local development
-Prerequisites
+```text
+Browser
+  React 19 + Vite SPA
+  ├─ localStorage: JWT and theme preference
+  ├─ React Router routes and component-local state
+  └─ fetch('/api/...')
+          │
+          ▼
+Vercel routing / Vite development proxy
+          │
+          ▼
+Flask API (api/index.py → backend/app.py)
+  ├─ JWT authentication
+  ├─ Groq client for generation, editing, and scoring
+  └─ database adapter (backend/db.py)
+          │
+          ├─ Turso/libSQL, when configured
+          └─ SQLite fallback, otherwise
+```
 
-Python 3.10+ (or supported by the dependencies)
-Node.js (recommended LTS) and npm/yarn
-(Optional) A Groq API key if you want to test AI endpoints.
-Backend (run locally)
+### Frontend
 
-Create and activate a virtual environment:
+The client starts in `frontend/src/main.jsx`, which wraps `App.jsx` in `BrowserRouter`. `App.jsx` owns application-wide session, generated-description, form-prefill, and theme state; feature components receive the data and callbacks they need as props. The client reads its API base URL from `VITE_API_URL` (or the legacy `REACT_APP_API_URL`) and defaults to `/api`.
+
+Primary application routes are:
+
+| Route        | Component    | Responsibility                                                      |
+| ------------ | ------------ | ------------------------------------------------------------------- |
+| `/login`     | `LoginPage`  | Registration and sign-in                                            |
+| `/`          | `InputForm`  | Collect role details and request generation                         |
+| `/output`    | `OutputPage` | Render, score, enhance, save edits, copy, and export a generated JD |
+| `/templates` | `Templates`  | Start from a preconfigured role template                            |
+| `/saved`     | `SavedJDs`   | Search, load, and delete saved JDs                                  |
+| `/history`   | `History`    | Inspect saved descriptions and their edits                          |
+| `/analytics` | `Analytics`  | Visualize user-level activity                                       |
+| `/reports`   | `Reports`    | Produce JD and analytics reports                                    |
+| `/settings`  | `Settings`   | Present account and preference settings                             |
+
+### Backend
+
+`backend/app.py` configures Flask, CORS, JWT handling, and the Groq client. Database initialization runs once before the first request. API endpoints are available at both root-level paths and `/api/*` paths; the frontend uses the `/api` form.
+
+The generation endpoint builds a constrained, structured prompt from form values. It looks up at most two reference JDs for the selected industry, calls Groq, and returns the generated Markdown. The edit and ATS-score endpoints also delegate to the configured Groq client.
+
+### Repository layout
+
+```text
+api/
+  index.py                    Vercel serverless entry point
+backend/
+  app.py                      Flask application, AI prompts, and API routes
+  db.py                       SQLite/libSQL adapter and schema creation
+  seed_reference_jds.py       Seed curated reference descriptions
+  generate_reference_jds.py   Generate reference descriptions with Groq
+  test_jd_quality.py          Manual, API-backed generation quality check
+  requirements.txt            Backend dependency list
+  render.yaml                 Optional Render service definition
+frontend/
+  src/
+    App.jsx                   Session, routing, and shared UI state
+    components/               Page and feature components
+    config.js                 API base URL resolution
+  public/                     Static branding assets
+  package.json                Frontend scripts and dependencies
+  vite.config.js              Vite and local API proxy configuration
+requirements.txt              Root dependency list for Vercel Python builds
+vercel.json                   Vercel build and routing configuration
+CONTRIBUTING.md               Contributor workflow and quality expectations
+```
+
+## Request and data flow
+
+1. A signed-in user submits role details in `InputForm`.
+2. The frontend sends `POST /api/generate` with the role inputs. Generation may be called without a JWT, although the UI requires a session to access the workspace.
+3. Flask optionally loads industry reference descriptions, creates the LLM prompt, and asks Groq to generate the JD.
+4. `App.jsx` stores the result in memory, navigates to `/output`, and attempts to auto-save it with `POST /api/save`.
+5. The output page can request an ATS assessment, submit AI editing instructions, record saved edits, or export the content locally.
+6. Saved, history, analytics, and report pages query user-scoped endpoints using the stored JWT.
+
+## Local development
+
+### Prerequisites
+
+- Python 3.10 or later
+- Node.js LTS and npm
+- A Groq API key for generation, editing, and ATS scoring
+- Optional: a Turso database URL and auth token for persistent remote storage
+
+### 1. Configure environment variables
+
+Create a root `.env` file (or `backend/.env`) and set at least the following values:
+
+```dotenv
+JWT_SECRET_KEY=replace-with-a-long-random-secret
+GROQ_API_KEY=your-groq-api-key
+
+# Optional: use Turso/libSQL instead of local SQLite
+TURSO_DATABASE_URL=libsql://your-database.turso.io
+TURSO_AUTH_TOKEN=your-turso-auth-token
+```
+
+Do not commit this file. Environment files and local databases are ignored by Git.
+
+### 2. Start the backend
+
+From the repository root on Windows PowerShell:
+
+```powershell
 python -m venv .venv
-source .venv/bin/activate (Windows: .venv\Scripts\activate)
-Install Python dependencies:
-pip install -r backend/requirements.txt (Top-level requirements.txt contains similar entries used for the Vercel function.)
-Create a .env file in repo root or backend/ with the environment variables above (GROQ_API_KEY if available).
-Initialize DB (app will auto-initialize on first request; you can also run):
-python backend/db.py
-Run the Flask app:
+.\.venv\Scripts\Activate.ps1
+pip install -r backend/requirements.txt
 python backend/app.py
-By default app.run(debug=False) starts a server on 127.0.0.1:5000
-Frontend
+```
 
-Move to frontend directory:
+The API listens on `http://127.0.0.1:5000`. It initializes its schema before the first request. To initialize it explicitly, run:
+
+```powershell
+python backend/db.py
+```
+
+On macOS/Linux, activate the environment with `source .venv/bin/activate`.
+
+### 3. Start the frontend
+
+In a second terminal:
+
+```powershell
 cd frontend
-Install deps:
-npm install
-Run dev server:
+npm ci
 npm run dev
-Build for production:
+```
+
+Vite proxies `/api` requests to `http://127.0.0.1:5000`, so the committed development environment file works without changing frontend configuration. Open the local URL shown by Vite.
+
+## Configuration
+
+| Variable             | Required                | Purpose                                                                                                          |
+| -------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `JWT_SECRET_KEY`     | Yes for production      | Signs access tokens. The code has a development fallback, but it must not be relied on in deployed environments. |
+| `GROQ_API_KEY`       | Yes for AI features     | Enables JD generation, AI editing, and ATS scoring.                                                              |
+| `TURSO_DATABASE_URL` | Optional                | Enables a remote Turso/libSQL database.                                                                          |
+| `TURSO_AUTH_TOKEN`   | Required with Turso URL | Authenticates the Turso/libSQL connection.                                                                       |
+| `VITE_API_URL`       | Optional                | Browser-visible API base URL; defaults to `/api`.                                                                |
+| `VERCEL`             | Platform-provided       | Causes the SQLite fallback to use the serverless temporary directory.                                            |
+
+## API reference
+
+All listed endpoints are also registered without the `/api` prefix. Protected endpoints require `Authorization: Bearer <token>`.
+
+| Method   | Endpoint             | Auth     | Purpose                                                 |
+| -------- | -------------------- | -------- | ------------------------------------------------------- |
+| `GET`    | `/api/health`        | No       | Health response                                         |
+| `POST`   | `/api/auth/register` | No       | Create a user from `full_name`, `email`, and `password` |
+| `POST`   | `/api/auth/login`    | No       | Authenticate and receive a token plus user data         |
+| `GET`    | `/api/auth/me`       | Required | Retrieve the authenticated user                         |
+| `POST`   | `/api/generate`      | Optional | Generate a JD from role details                         |
+| `POST`   | `/api/edit`          | Optional | Rewrite `current_jd` according to an `instruction`      |
+| `POST`   | `/api/ats-score`     | Optional | Score a JD and return feedback                          |
+| `POST`   | `/api/save`          | Required | Persist a job description                               |
+| `POST`   | `/api/save/edit`     | Required | Persist an edit record and update a saved JD            |
+| `GET`    | `/api/saved`         | Required | List saved JDs; accepts optional `search`               |
+| `DELETE` | `/api/saved/<id>`    | Required | Delete an owned saved JD and its edit history           |
+| `GET`    | `/api/history`       | Required | Retrieve saved JDs and their edit history               |
+| `GET`    | `/api/analytics`     | Required | Retrieve user-scoped activity aggregates                |
+
+Example generation request:
+
+```bash
+curl -X POST http://127.0.0.1:5000/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{"job_title":"Senior Backend Engineer","industry":"Technology","experience":"5+ years","skills":"Python, Flask, SQL","tone":"Professional","company_name":"Acme Corp","location":"Remote","nature_of_job":"Remote"}'
+```
+
+## Persistence
+
+`backend/db.py` creates four tables on initialization:
+
+- `users`: account identity and password hash.
+- `saved_jds`: the current saved version of each user-owned JD and its metadata.
+- `jd_edits`: edit instructions and historical revised text for a saved JD.
+- `reference_jds`: industry examples inserted into generation prompts.
+
+When Turso credentials and `libsql-client` are available, the API uses Turso. Otherwise it uses a local SQLite database at `backend/app.db`; in an unwritable or Vercel environment, it falls back to a temporary-directory database. The latter is not durable across serverless invocations or deployments, so production deployments should configure Turso or another durable database.
+
+## Deployment
+
+The root `vercel.json` builds both parts of the monorepo:
+
+- `api/index.py` is deployed with `@vercel/python`, including the `backend/` package.
+- `frontend/package.json` is built with `@vercel/static-build`; its `dist/` directory serves the SPA.
+- Requests under `/api/*` are routed to Flask. Other requests are served from the frontend build.
+
+Set `JWT_SECRET_KEY`, `GROQ_API_KEY`, and—if persistence is required—both Turso variables in the Vercel project environment. A `backend/render.yaml` is also present for deploying the Flask service separately to Render.
+
+## Verification
+
+The frontend exposes the project checks below:
+
+```powershell
+cd frontend
+npm run lint
 npm run build
-After build, dist/ is produced and served in Vercel configuration.
-Example: Generate a JD (curl)
+```
 
-Register/login to get a JWT (token).
-Example generate call: curl -X POST http://localhost:5000/generate
--H "Content-Type: application/json"
--H "Authorization: Bearer <JWT_TOKEN>"
--d '{ "job_title":"Senior Backend Engineer", "industry":"IT", "experience":"5+ years", "skills":"Python,Flask,SQL", "tone":"Professional", "company_name":"Acme Corp", "location":"Remote", "nature_of_job":"Remote" }'
-If GROQ_API_KEY is not set, /generate will return an error: {"error":"AI service not configured"}.
+`backend/test_jd_quality.py` is an API-backed exploratory script rather than an isolated automated test suite. It sends three real generation requests, sleeps between them to reduce rate limiting, and requires `GROQ_API_KEY`; run it deliberately only when you want to spend API quota:
 
-Deployment
-The repository includes a top-level vercel.json that:
-Builds api/index.py as a Python serverless function (includes backend/** in the function bundle).
-Builds the React frontend with frontend/package.json using the static-build adapter and serves frontend/dist.
-On Vercel, the system environment should include GROQ_API_KEY and any DB credentials (TURSO vars) you want to use. If you do not provide a writable filesystem, the app will use a temp file for SQLite.
-Troubleshooting & notes
-If bcrypt isn't available, the code falls back to SHA-256 hashing — install bcrypt for secure hashing: pip install bcrypt
-If libsql_client and Turso vars are present but the connection fails, the app falls back to local SQLite and logs a warning.
-To allow the AI endpoints to work, set GROQ_API_KEY in environment. The code expects the Groq client to expose chat completions with model "llama-3.1-8b-instant".
-The API expects the DB to be initialized automatically, but you can run backend/db.py directly to pre-create tables.
-Contributing
-Open issues for bugs or feature requests.
-Suggested improvements: add CI tests, add E2E tests for frontend/backend, add migration scripts and stronger secrets handling, add proper license.
-License
-No license file is present. Add a LICENSE if you plan to open-source this project.
+```powershell
+cd backend
+python test_jd_quality.py
+```
 
+## Known constraints
+
+This codebase is functional but has several maintainer-relevant limitations:
+
+- The frontend stores JWTs in `localStorage`; an httpOnly-cookie approach would provide stronger XSS resistance.
+- The backend permits all CORS origins and lacks rate limiting. Production deployments should restrict origins and add request protections.
+- bcrypt is the intended password hashing implementation. The SHA-256 fallback exists for resilience but is not an appropriate production password-storage strategy.
+- Input validation and operational error logging are minimal.
+- The settings UI includes presentation-only actions that are not yet persisted through an API.
+- There is no isolated backend or frontend automated test suite yet.
+- No license file is currently included; confirm licensing with maintainers before redistributing or reusing the project.
+
+## Contributing
+
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for setup expectations, branch and commit guidance, verification commands, and the fork-to-pull-request workflow.
