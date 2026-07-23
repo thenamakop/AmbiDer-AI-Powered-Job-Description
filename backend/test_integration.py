@@ -12,26 +12,39 @@ import db
 class ApiIntegrationTestCase(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
-        self.database = db.SQLiteClientWrapper(str(Path(self.directory.name) / "test.db"))
+        self.database = db.SQLiteClientWrapper(
+            str(Path(self.directory.name) / "test.db")
+        )
         with patch.object(db, "get_db", return_value=self.database):
             db.init_db()
-        self.database_patch = patch.object(app_module, "get_db", return_value=self.database)
+        self.database_patch = patch.object(
+            app_module, "get_db", return_value=self.database
+        )
         self.database_patch.start()
         self.previous_initialized = app_module._db_initialized
         app_module._db_initialized = True
         self.app = app_module.app
-        self.app.config.update(TESTING=True)
+        self.original_jwt_secret = self.app.config["JWT_SECRET_KEY"]
+        self.app.config.update(
+            TESTING=True,
+            JWT_SECRET_KEY="test-signing-key-that-is-longer-than-thirty-two-characters",
+        )
         self.client = self.app.test_client()
 
     def tearDown(self):
         self.database_patch.stop()
+        self.app.config["JWT_SECRET_KEY"] = self.original_jwt_secret
         app_module._db_initialized = self.previous_initialized
         self.directory.cleanup()
 
     def register(self, email):
         return self.client.post(
             "/api/auth/register",
-            json={"full_name": "Test User", "email": email, "password": "safe-password-123"},
+            json={
+                "full_name": "Test User",
+                "email": email,
+                "password": "safe-password-123",
+            },
         )
 
     def test_register_login_and_authenticated_save(self):
@@ -66,7 +79,11 @@ class ApiIntegrationTestCase(unittest.TestCase):
         response = self.client.post(
             "/api/save/edit",
             headers={"Authorization": f"Bearer {second['token']}"},
-            json={"jd_id": jd_id, "instruction": "Make it shorter", "updated_jd": "Updated text"},
+            json={
+                "jd_id": jd_id,
+                "instruction": "Make it shorter",
+                "updated_jd": "Updated text",
+            },
         )
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.get_json()["error"], "JD not found or unauthorized")
