@@ -1,11 +1,14 @@
+import logging
 import os
 import re
+import time
+import uuid
 from datetime import timedelta
 
 import certifi
 from db import get_db, init_db
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, g, jsonify, request
 from flask_cors import CORS
 from flask_jwt_extended import (
     JWTManager,
@@ -15,6 +18,7 @@ from flask_jwt_extended import (
 )
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from werkzeug.exceptions import HTTPException
 
 try:
     import bcrypt
@@ -29,6 +33,7 @@ except ImportError:
 os.environ["SSL_CERT_FILE"] = certifi.where()
 load_dotenv()
 
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper(), format="%(message)s")
 app = Flask(__name__)
 app_environment = os.getenv("APP_ENV", "development").lower()
 is_production = app_environment == "production" or bool(os.getenv("VERCEL"))
@@ -62,11 +67,14 @@ CORS(
 )
 
 jwt = JWTManager(app)
+rate_limit_storage_uri = os.getenv("RATELIMIT_STORAGE_URI", "memory://")
+if is_production and rate_limit_storage_uri == "memory://":
+    raise RuntimeError("RATELIMIT_STORAGE_URI is required in production")
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
     default_limits=["200 per day", "50 per hour"],
-    storage_uri=os.getenv("RATELIMIT_STORAGE_URI", "memory://"),
+    storage_uri=rate_limit_storage_uri,
 )
 
 _db_initialized = False
@@ -75,6 +83,8 @@ _db_initialized = False
 @app.before_request
 def ensure_db_initialized():
     global _db_initialized
+    g.request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    g.request_started_at = time.perf_counter()
     if not _db_initialized:
         init_db()
         _db_initialized = True
@@ -85,6 +95,15 @@ def add_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-Request-ID"] = g.get("request_id", "unknown")
+    app.logger.info(
+        "request_id=%s method=%s path=%s status=%s duration_ms=%d",
+        g.get("request_id", "unknown"),
+        request.method,
+        request.path,
+        response.status_code,
+        (time.perf_counter() - g.get("request_started_at", time.perf_counter())) * 1000,
+    )
     return response
 
 
@@ -96,6 +115,16 @@ def request_too_large(_error):
 @app.errorhandler(429)
 def rate_limit_exceeded(_error):
     return jsonify({"error": "Too many requests. Please try again later."}), 429
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    if isinstance(error, HTTPException):
+        return error
+    app.logger.exception(
+        "request_id=%s unexpected_error", g.get("request_id", "unknown")
+    )
+    return jsonify({"error": "Internal server error"}), 500
 
 
 def get_json_payload():
